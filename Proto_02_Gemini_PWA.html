@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Liste de Courses</title>
+
+  <!-- Configuration Web App (PWA) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Courses">
+  <meta name="theme-color" content="#f1f5f9">
+  
+  <!-- Icône pour l'écran d'accueil -->
+  <link rel="apple-touch-icon" href="https://fav.farm/🛒">
+  <link rel="icon" href="https://fav.farm/🛒">
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-4 pb-32 font-sans select-none" x-data="shoppingApp()">
+
+  <h1 class="text-2xl font-bold text-center text-slate-800 my-4">🛒 Liste de Courses</h1>
+
+  <!-- Liste d'articles -->
+  <ul id="shopping-list" 
+      class="space-y-3 max-w-md mx-auto transition-opacity duration-300 ease-in-out"
+      :class="{ 'opacity-100': listVisible, 'opacity-0': !listVisible }">
+    
+    <template x-for="(item, index) in items" :key="item.id">
+      
+      <li :data-id="item.id"
+          class="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between border border-slate-200 active:scale-95 transition-all duration-300">
+        
+        <!-- Zone Nom -->
+        <div class="flex items-center gap-3 flex-1 cursor-pointer" @click="toggleItem(index)">
+          <span class="drag-handle text-slate-400 cursor-grab text-lg">☰</span>
+          <span class="text-lg font-medium transition-colors duration-200" 
+                :class="{ 'line-through text-slate-400 opacity-40': item.checked, 'text-slate-700': !item.checked }" 
+                x-text="item.name"></span>
+        </div>
+
+        <!-- Zone Prix & Actions -->
+        <div class="flex items-center gap-2">
+          
+          <button @click="openSinglePriceModal(index)" 
+                  class="px-3 py-1.5 bg-slate-100 rounded-xl font-bold text-slate-700 text-sm active:bg-slate-200 transition-all duration-300 ease-in-out transform"
+                  :class="{ 'opacity-0 scale-75 -translate-y-2': item.priceAnimating, 'opacity-100 scale-100 translate-y-0': !item.priceAnimating }">
+            <span x-text="item.price ? item.price + ' XPF' : '🪙 Prix'"></span>
+          </button>
+          
+          <button @click="deleteItem(index)" 
+                  class="text-red-500 p-2 hover:bg-red-50 active:bg-red-100 rounded-xl transition-colors">
+            🗑️
+          </button>
+        </div>
+
+      </li>
+    </template>
+  </ul>
+
+  <!-- Toast Annulation -->
+  <div x-show="toast.show" 
+       x-transition:enter="transition ease-out duration-300 transform"
+       x-transition:enter-start="opacity-0 translate-y-8 scale-90"
+       x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+       x-transition:leave="transition ease-in duration-200 transform"
+       x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+       x-transition:leave-end="opacity-0 translate-y-8 scale-90"
+       class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-4 z-50 text-sm">
+    <span x-text="toast.message"></span>
+    <button @click="undoLastAction()" class="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded-xl font-semibold text-xs transition-colors">
+      ↩️ Annuler
+    </button>
+  </div>
+
+  <!-- MODALE UNIQUE -->
+  <div x-show="modal.show" 
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 bg-slate-900/30 z-50 flex items-center justify-center p-4"
+       @click.self="closeModal()">
+    
+    <div x-show="modal.show"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="opacity-0 translate-y-6 scale-90"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-6 scale-90"
+         class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl overflow-hidden">
+      
+      <div class="grid grid-cols-1 grid-rows-1 relative min-h-[160px]">
+        
+        <!-- Étape 1 : Nom -->
+        <div x-show="modal.step === 'name'" 
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 -translate-x-8 scale-95"
+             x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+             x-transition:leave="transition ease-in duration-250 transform"
+             x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+             x-transition:leave-end="opacity-0 -translate-x-12 scale-95"
+             class="col-start-1 row-start-1 space-y-4">
+          <h3 class="text-xl font-bold text-slate-800">Ajouter un produit</h3>
+          <input type="text" x-model="forms.addName" x-ref="addInput" @keydown.enter="goToPriceStep()"
+                 placeholder="Nom du produit..." 
+                 class="w-full bg-slate-100 border border-slate-200 rounded-2xl p-3 text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <div class="flex justify-end gap-2">
+            <button @click="closeModal()" class="px-4 py-2 text-slate-500 font-medium">Annuler</button>
+            <button @click="goToPriceStep()" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-semibold shadow-md active:scale-95 transition-transform">Suivant ➔</button>
+          </div>
+        </div>
+
+        <!-- Étape 2 : Prix -->
+        <div x-show="modal.step === 'price'" 
+             x-transition:enter="transition duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] transform"
+             x-transition:enter-start="opacity-0 translate-x-12 scale-95"
+             x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+             x-transition:leave="transition ease-in duration-200 transform"
+             x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-x-12 scale-95"
+             class="col-start-1 row-start-1 space-y-4">
+          <h3 class="text-xl font-bold text-slate-800" x-text="modal.isCreatingNew ? 'Saisir le prix' : 'Modifier le prix'"></h3>
+          <input type="number" x-model="forms.priceValue" x-ref="priceInput" @keydown.enter="finishModalProcess()"
+                 placeholder="0 XPF" 
+                 class="w-full bg-slate-100 border border-slate-200 rounded-2xl p-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div class="flex justify-end gap-2">
+            <button @click="finishModalProcess(true)" class="px-4 py-2 text-slate-500 font-medium" x-show="modal.isCreatingNew">Passer</button>
+            <button @click="closeModal()" class="px-4 py-2 text-slate-500 font-medium" x-show="!modal.isCreatingNew">Annuler</button>
+            <button @click="finishModalProcess()" class="bg-blue-500 text-white px-5 py-2 rounded-xl font-semibold shadow-md active:scale-95 transition-transform">Valider</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Barre du bas -->
+  <div class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md p-4 border-t border-slate-200 flex justify-between items-center max-w-md mx-auto z-40">
+    <div>
+      <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Total</div>
+      <div class="text-xl font-black text-slate-800" x-text="total + ' XPF'"></div>
+    </div>
+
+    <div class="flex gap-2">
+      <button @click="clearChecked()" class="bg-red-500 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm active:scale-95 transition-all">
+        Clean
+      </button>
+      <button @click="openAddModal()" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm active:scale-95 transition-all flex items-center gap-1">
+        <span>+</span> Ajouter
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function shoppingApp() {
+      const rawData = JSON.parse(localStorage.getItem('shoppingList')) || [
+        { id: 1, name: 'Pommes', price: 250, checked: false },
+        { id: 2, name: 'Lait', price: 120, checked: true }
+      ];
+      
+      const initialItems = rawData.map(item => ({ 
+        ...item, 
+        priceAnimating: false 
+      }));
+
+      return {
+        items: initialItems,
+        listVisible: true,
+        lastHistory: null,
+        toast: { show: false, message: '', timeout: null },
+        modal: { show: false, step: 'name', isCreatingNew: false },
+        forms: { addName: '', priceValue: '', selectedIndex: null },
+
+        init() {
+          this.$watch('items', value => {
+            const cleanData = value.map(({ priceAnimating, ...rest }) => rest);
+            localStorage.setItem('shoppingList', JSON.stringify(cleanData));
+          });
+
+          this.$nextTick(() => {
+            new Sortable(document.getElementById('shopping-list'), {
+              handle: '.drag-handle',
+              animation: 200,
+              ghostClass: 'opacity-30',
+              onEnd: (evt) => {
+                const movedItem = this.items.splice(evt.oldIndex, 1)[0];
+                this.items.splice(evt.newIndex, 0, movedItem);
+              }
+            });
+          });
+        },
+        get total() {
+          return this.items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+        },
+        openAddModal() {
+          this.forms.addName = '';
+          this.forms.priceValue = '';
+          this.forms.selectedIndex = null;
+          this.modal.isCreatingNew = true;
+          this.modal.step = 'name';
+          this.modal.show = true;
+          this.$nextTick(() => this.$refs.addInput.focus());
+        },
+        goToPriceStep() {
+          if (this.forms.addName.trim()) {
+            this.modal.step = '';
+            setTimeout(() => {
+              this.modal.step = 'price';
+              this.$nextTick(() => this.$refs.priceInput.focus());
+            }, 180);
+          }
+        },
+
+        finishModalProcess(skipPrice = false) {
+          const price = skipPrice ? 0 : (Number(this.forms.priceValue) || 0);
+
+          if (this.modal.isCreatingNew) {
+            const name = this.forms.addName.trim();
+            if (name) {
+              this.modal.show = false;
+              setTimeout(() => {
+                this.items.push({
+                  id: Date.now(),
+                  name: name,
+                  price: price,
+                  checked: false,
+                  priceAnimating: false
+                });
+              }, 200);
+            }
+          } else {
+            if (this.forms.selectedIndex !== null && this.items[this.forms.selectedIndex]) {
+              this.items[this.forms.selectedIndex].price = price;
+            }
+            this.modal.show = false;
+          }
+        },
+
+        openSinglePriceModal(index) {
+          this.forms.selectedIndex = index;
+          this.forms.priceValue = this.items[index].price || '';
+          this.modal.isCreatingNew = false;
+          this.modal.step = 'price';
+          this.modal.show = true;
+          this.$nextTick(() => this.$refs.priceInput.focus());
+        },
+        closeModal() {
+          this.modal.show = false;
+        },
+        toggleItem(index) {
+          this.items[index].checked = !this.items[index].checked;
+        },
+
+        deleteItem(index) {
+          const itemToDelete = this.items[index];
+          this.lastHistory = {
+            type: 'single',
+            item: { ...itemToDelete },
+            index
+          };
+          const name = itemToDelete.name;
+
+          this.listVisible = false;
+
+          setTimeout(() => {
+            const currentIndex = this.items.findIndex(i => i.id === itemToDelete.id);
+            if (currentIndex !== -1) {
+              this.items.splice(currentIndex, 1);
+            }
+            this.listVisible = true;
+          }, 300);
+
+          this.showToast(`"${name}" supprimé`);
+        },
+
+        clearChecked() {
+          const checkedItems = this.items.filter(i => i.checked);
+          if (checkedItems.length === 0) return;
+
+          this.lastHistory = {
+            type: 'clean',
+            items: JSON.parse(JSON.stringify(this.items))
+          };
+
+          this.listVisible = false;
+
+          setTimeout(() => {
+            this.items = this.items.filter(i => !i.checked);
+            this.listVisible = true;
+          }, 300);
+
+          this.showToast(`${checkedItems.length} article(s) nettoyé(s)`);
+        },
+
+        undoLastAction() {
+          if (!this.lastHistory) return;
+
+          this.listVisible = false;
+
+          setTimeout(() => {
+            if (this.lastHistory.type === 'single') {
+              this.items.splice(this.lastHistory.index, 0, this.lastHistory.item);
+            } else if (this.lastHistory.type === 'clean') {
+              this.items = JSON.parse(JSON.stringify(this.lastHistory.items));
+            }
+
+            this.listVisible = true;
+            this.lastHistory = null;
+            this.toast.show = false;
+          }, 300);
+        },
+
+        showToast(message) {
+          this.toast.message = message;
+          this.toast.show = true;
+          if (this.toast.timeout) clearTimeout(this.toast.timeout);
+          this.toast.timeout = setTimeout(() => { this.toast.show = false; }, 4000);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
