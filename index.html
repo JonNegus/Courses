@@ -17,6 +17,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -26,17 +27,18 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 pb-32 font-sans select-none transition-colors duration-500">
 
-  <!-- En-tête avec titre et Toggle Theme -->
+  <!-- Canvas prioritaire pour la désintégration -->
+  <canvas id="dust-canvas" class="fixed inset-0 pointer-events-none z-[100]"></canvas>
+
+  <!-- En-tête -->
   <div class="max-w-md mx-auto flex justify-between items-center my-4 relative">
     <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 transition-colors duration-500 flex-1 text-center pl-8">
       🛒 Liste de Courses
     </h1>
     
-    <!-- Bouton Toggle Thème -->
     <button @click="toggleTheme()" 
             class="p-2 rounded-2xl bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 active:scale-90 transition-all duration-300">
       <div class="relative w-6 h-6 flex items-center justify-center">
-        <!-- Soleil -->
         <span x-show="!darkMode" 
               x-transition:enter="transition duration-500 ease-out transform"
               x-transition:enter-start="opacity-0 rotate-90 scale-50"
@@ -45,7 +47,6 @@
               x-transition:leave-start="opacity-100 rotate-0 scale-100"
               x-transition:leave-end="opacity-0 -rotate-90 scale-50"
               class="absolute text-xl">☀️</span>
-        <!-- Lune -->
         <span x-show="darkMode" 
               x-transition:enter="transition duration-500 ease-out transform"
               x-transition:enter-start="opacity-0 -rotate-90 scale-50"
@@ -65,7 +66,7 @@
     
     <template x-for="(item, index) in items" :key="item.id">
       
-      <li :data-id="item.id"
+      <li :id="'item-' + item.id" :data-id="item.id"
           class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm flex items-center justify-between border border-slate-200 dark:border-slate-700/60 active:scale-95 transition-all duration-300">
         
         <!-- Zone Nom -->
@@ -79,7 +80,6 @@
         <!-- Zone Prix & Actions -->
         <div class="flex items-center gap-2">
           
-          <!-- Bouton Prix identique aux éléments de liste (active:scale-95 + transition-opacity 300ms) -->
           <button @click="openSinglePriceModal(index)" 
                   class="px-3 py-1.5 bg-slate-100 dark:bg-slate-700/60 rounded-xl font-bold text-slate-700 dark:text-slate-200 text-sm active:scale-95 transition-all duration-300 ease-in-out"
                   :class="{ 'opacity-0': item.priceAnimating, 'opacity-100': !item.priceAnimating }">
@@ -193,8 +193,91 @@
       </button>
     </div>
   </div>
-
   <script>
+    function triggerDustAnimation(elements, onComplete) {
+      const dustCanvas = document.getElementById('dust-canvas');
+      dustCanvas.width = window.innerWidth;
+      dustCanvas.height = window.innerHeight;
+      const ctx = dustCanvas.getContext('2d');
+
+      const elementsArray = Array.isArray(elements) ? elements : [elements];
+      let captures = [];
+
+      elementsArray.forEach(el => {
+        const rect = el.getBoundingClientRect();
+
+        // Capture sans délai
+        const promise = html2canvas(el, { 
+          backgroundColor: null, 
+          scale: 1,
+          logging: false,
+          // Désactiver le rendu CSS pendant la capture snapshot
+          onclone: (clonedDoc) => {
+            const clonedEl = clonedDoc.getElementById(el.id);
+            if (clonedEl) {
+              clonedEl.style.transition = 'none';
+              clonedEl.querySelectorAll('*').forEach(c => c.style.transition = 'none');
+            }
+          }
+        }).then(canvas => {
+          // L'élément réel est immédiatement caché dès que la capture mémoire est faite
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+
+          const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          let particles = [];
+          for (let y = 0; y < canvas.height; y += 3) {
+            for (let x = 0; x < canvas.width; x += 3) {
+              const index = (y * canvas.width + x) * 4;
+              if (data[index + 3] > 20) {
+                particles.push({
+                  x: rect.left + x,
+                  y: rect.top + y,
+                  vx: Math.random() * 5 + 2,
+                  vy: (Math.random() - 0.5) * 3,
+                  life: 1,
+                  decay: Math.random() * 0.025 + 0.018,
+                  color: `rgba(${data[index]},${data[index+1]},${data[index+2]},${data[index+3]/255})`
+                });
+              }
+            }
+          }
+          return particles;
+        });
+        captures.push(promise);
+      });
+
+      Promise.all(captures).then(results => {
+        let allParticles = results.flat();
+
+        function animate() {
+          ctx.clearRect(0, 0, dustCanvas.width, dustCanvas.height);
+          let activeCount = 0;
+
+          allParticles.forEach(p => {
+            if (p.life > 0) {
+              activeCount++;
+              p.x += p.vx;
+              p.y += p.vy;
+              p.vx += 0.15; // Accélération vers la droite
+              p.life -= p.decay;
+              ctx.fillStyle = p.color;
+              ctx.globalAlpha = Math.max(0, p.life);
+              ctx.fillRect(p.x, p.y, 2.5, 2.5);
+            }
+          });
+
+          if (activeCount > 0) {
+            requestAnimationFrame(animate);
+          } else {
+            ctx.clearRect(0, 0, dustCanvas.width, dustCanvas.height);
+            if (onComplete) onComplete();
+          }
+        }
+        animate();
+      });
+    }
+
     function shoppingApp() {
       const rawData = JSON.parse(localStorage.getItem('shoppingList')) || [
         { id: 1, name: 'Pommes', price: 250, checked: false },
@@ -285,11 +368,9 @@
             if (this.forms.selectedIndex !== null && this.items[this.forms.selectedIndex]) {
               const item = this.items[this.forms.selectedIndex];
               
-              // 1. Fondu de sortie (300ms)
               item.priceAnimating = true;
               this.modal.show = false;
 
-              // 2. Mise à jour puis fondu d'entrée identique aux animations de liste
               setTimeout(() => {
                 item.price = price;
                 item.priceAnimating = false;
@@ -324,15 +405,17 @@
           };
           const name = itemToDelete.name;
 
-          this.listVisible = false;
-
-          setTimeout(() => {
-            const currentIndex = this.items.findIndex(i => i.id === itemToDelete.id);
-            if (currentIndex !== -1) {
-              this.items.splice(currentIndex, 1);
-            }
-            this.listVisible = true;
-          }, 300);
+          const el = document.getElementById('item-' + itemToDelete.id);
+          if (el) {
+            triggerDustAnimation(el, () => {
+              const currentIndex = this.items.findIndex(i => i.id === itemToDelete.id);
+              if (currentIndex !== -1) {
+                this.items.splice(currentIndex, 1);
+              }
+            });
+          } else {
+            this.items.splice(index, 1);
+          }
 
           this.showToast(`"${name}" supprimé`);
         },
@@ -346,12 +429,17 @@
             items: JSON.parse(JSON.stringify(this.items))
           };
 
-          this.listVisible = false;
+          const elements = checkedItems
+            .map(item => document.getElementById('item-' + item.id))
+            .filter(el => el !== null);
 
-          setTimeout(() => {
+          if (elements.length > 0) {
+            triggerDustAnimation(elements, () => {
+              this.items = this.items.filter(i => !i.checked);
+            });
+          } else {
             this.items = this.items.filter(i => !i.checked);
-            this.listVisible = true;
-          }, 300);
+          }
 
           this.showToast(`${checkedItems.length} article(s) nettoyé(s)`);
         },
