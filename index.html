@@ -79,15 +79,20 @@
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- Modal Dynamique (Ajout & Edition Prix) -->
   <div x-show="modal.show" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4" @click.self="modal.show = false">
     <div class="p-6 w-full max-w-sm rounded-lg border shadow-2xl space-y-4" style="background-color: #0d1017; border-color: var(--border-color)">
-      <h3 class="text-lg font-bold tracking-wide" style="color: var(--text-main)">Ajouter un artefact</h3>
-      <input type="text" x-model="forms.addName" @keydown.enter="confirmAdd()" placeholder="Nom du produit..." class="w-full bg-black/50 border p-3 rounded text-white focus:outline-none" style="border-color: var(--border-color)">
-      <input type="number" x-model="forms.priceValue" @keydown.enter="confirmAdd()" placeholder="Prix en XPF..." class="w-full bg-black/50 border p-3 rounded text-white focus:outline-none" style="border-color: var(--border-color)">
+      <h3 class="text-lg font-bold tracking-wide" style="color: var(--text-main)" x-text="modal.mode === 'add' ? 'Ajouter un artefact' : 'Ajuster la valeur'"></h3>
+      
+      <template x-if="modal.mode === 'add'">
+        <input type="text" x-model="forms.addName" @keydown.enter="confirmModal()" placeholder="Nom du produit..." class="w-full bg-black/50 border p-3 rounded text-white focus:outline-none" style="border-color: var(--border-color)">
+      </template>
+      
+      <input type="number" x-model="forms.priceValue" @keydown.enter="confirmModal()" placeholder="Prix en XPF..." class="w-full bg-black/50 border p-3 rounded text-white focus:outline-none" style="border-color: var(--border-color)">
+      
       <div class="flex justify-end gap-2 pt-2">
         <button @click="modal.show = false" class="px-4 py-2 text-slate-400 text-sm">Annuler</button>
-        <button @click="confirmAdd()" class="px-5 py-2 rounded text-black font-semibold text-sm" style="background-color: var(--accent-color)">Inscrire</button>
+        <button @click="confirmModal()" class="px-5 py-2 rounded text-black font-semibold text-sm" style="background-color: var(--accent-color)">Valider</button>
       </div>
     </div>
   </div>
@@ -103,7 +108,7 @@
         items: rawData,
         lastHistory: null,
         toast: { show: false, message: '', timeout: null },
-        modal: { show: false },
+        modal: { show: false, mode: 'add', editIndex: null },
         forms: { addName: '', priceValue: '' },
 
         init() {
@@ -140,26 +145,52 @@
         },
 
         openAddModal() {
+          this.modal.mode = 'add';
           this.forms.addName = '';
           this.forms.priceValue = '';
           this.modal.show = true;
         },
 
-        confirmAdd() {
-          if (!this.forms.addName.trim()) return;
-          const oldTotal = this.total;
-          const price = Number(this.forms.priceValue) || 0;
-          
-          this.items.push({
-            id: Date.now(),
-            name: this.forms.addName.trim(),
-            price: price,
-            checked: false
-          });
+        openSinglePriceModal(index) {
+          this.modal.mode = 'price';
+          this.modal.editIndex = index;
+          this.forms.priceValue = this.items[index].price || '';
+          this.modal.show = true;
+        },
 
-          this.modal.show = false;
-          const delta = this.total - oldTotal;
-          this.dispatchThemeEvent('total-changed', { delta });
+        confirmModal() {
+          if (this.modal.mode === 'add') {
+            if (!this.forms.addName.trim()) return;
+            const oldTotal = this.total;
+            const price = Number(this.forms.priceValue) || 0;
+            
+            this.items.push({
+              id: Date.now(),
+              name: this.forms.addName.trim(),
+              price: price,
+              checked: false
+            });
+
+            this.modal.show = false;
+            const delta = this.total - oldTotal;
+            this.dispatchThemeEvent('total-changed', { delta });
+
+          } else if (this.modal.mode === 'price') {
+            const index = this.modal.editIndex;
+            const oldTotal = this.total;
+            const newPrice = Number(this.forms.priceValue) || 0;
+            
+            this.items[index].price = newPrice;
+            this.modal.show = false;
+
+            const el = document.getElementById('item-' + this.items[index].id);
+            const buttonEl = el ? el.querySelector('button') : null;
+
+            this.dispatchThemeEvent('price-updated', { 
+              element: buttonEl,
+              delta: this.total - oldTotal 
+            });
+          }
         },
 
         deleteItem(index) {
