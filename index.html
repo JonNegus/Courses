@@ -1,472 +1,217 @@
 <!DOCTYPE html>
-<html lang="fr" x-data="shoppingApp()" :class="{ 'dark': darkMode }">
+<html lang="fr" x-data="shoppingApp()">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Liste de Courses</title>
-
-  <!-- Configuration Web App (PWA) -->
+  
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Courses">
-  <meta name="theme-color" content="#0f172a">
-  
+  <meta name="theme-color" content="#07080a">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="https://fav.farm/🛒">
   <link rel="icon" href="https://fav.farm/🛒">
 
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/theme-expedition33.css">
+
+  <!-- Scripts Libs -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-    }
-  </script>
+
+  <!-- Scripts App Engine & Thèmes -->
+  <script src="js/theme-engine.js"></script>
+  <script src="js/theme-expedition33.js"></script>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 pb-32 font-sans select-none transition-colors duration-500">
 
-  <!-- Canvas prioritaire pour la désintégration -->
-  <canvas id="dust-canvas" class="fixed inset-0 pointer-events-none z-[100]"></canvas>
+<body class="p-4 pb-32" data-theme="expedition33">
 
-  <!-- En-tête -->
+  <canvas id="fx-canvas" class="fixed inset-0 pointer-events-none z-[100]"></canvas>
+
   <div class="max-w-md mx-auto flex justify-between items-center my-4 relative">
-    <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 transition-colors duration-500 flex-1 text-center pl-8">
-      🛒 Liste de Courses
+    <h1 class="text-2xl font-bold flex-1 text-center tracking-widest drop-shadow-md">
+      EXPÉDITION 33
     </h1>
-    
-    <button @click="toggleTheme()" 
-            class="p-2 rounded-2xl bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 active:scale-90 transition-all duration-300">
-      <div class="relative w-6 h-6 flex items-center justify-center">
-        <span x-show="!darkMode" 
-              x-transition:enter="transition duration-500 ease-out transform"
-              x-transition:enter-start="opacity-0 rotate-90 scale-50"
-              x-transition:enter-end="opacity-100 rotate-0 scale-100"
-              x-transition:leave="transition duration-300 ease-in transform"
-              x-transition:leave-start="opacity-100 rotate-0 scale-100"
-              x-transition:leave-end="opacity-0 -rotate-90 scale-50"
-              class="absolute text-xl">☀️</span>
-        <span x-show="darkMode" 
-              x-transition:enter="transition duration-500 ease-out transform"
-              x-transition:enter-start="opacity-0 -rotate-90 scale-50"
-              x-transition:enter-end="opacity-100 rotate-0 scale-100"
-              x-transition:leave="transition duration-300 ease-in transform"
-              x-transition:leave-start="opacity-100 rotate-0 scale-100"
-              x-transition:leave-end="opacity-0 rotate-90 scale-50"
-              class="absolute text-xl">🌙</span>
-      </div>
-    </button>
   </div>
 
   <!-- Liste d'articles -->
-  <ul id="shopping-list" 
-      class="space-y-3 max-w-md mx-auto transition-opacity duration-300 ease-in-out"
-      :class="{ 'opacity-100': listVisible, 'opacity-0': !listVisible }">
-    
+  <ul id="shopping-list" class="space-y-3 max-w-md mx-auto transition-opacity duration-300">
     <template x-for="(item, index) in items" :key="item.id">
-      
-      <li :id="'item-' + item.id" :data-id="item.id"
-          class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm flex items-center justify-between border border-slate-200 dark:border-slate-700/60 active:scale-95 transition-all duration-300">
+      <li :id="'item-' + item.id" class="p-4 flex items-center justify-between border active:scale-95 transition-all duration-300">
         
-        <!-- Zone Nom -->
         <div class="flex items-center gap-3 flex-1 cursor-pointer" @click="toggleItem(index)">
-          <span class="drag-handle text-slate-400 dark:text-slate-500 cursor-grab text-lg">☰</span>
-          <span class="text-lg font-medium transition-colors duration-300" 
-                :class="{ 'line-through text-slate-400 dark:text-slate-500 opacity-40': item.checked, 'text-slate-700 dark:text-slate-200': !item.checked }" 
+          <span class="drag-handle opacity-40 cursor-grab text-lg">☰</span>
+          <span class="text-lg font-medium transition-all duration-300" 
+                :class="{ 'item-checked': item.checked }" 
                 x-text="item.name"></span>
         </div>
 
-        <!-- Zone Prix & Actions -->
         <div class="flex items-center gap-2">
-          
           <button @click="openSinglePriceModal(index)" 
-                  class="px-3 py-1.5 bg-slate-100 dark:bg-slate-700/60 rounded-xl font-bold text-slate-700 dark:text-slate-200 text-sm active:scale-95 transition-all duration-300 ease-in-out"
-                  :class="{ 'opacity-0': item.priceAnimating, 'opacity-100': !item.priceAnimating }">
+                  class="px-3 py-1.5 rounded-md font-bold text-sm active:scale-95 transition-all border"
+                  style="background-color: rgba(7, 8, 10, 0.6); color: var(--accent-price); border-color: rgba(102, 252, 241, 0.3)">
             <span x-text="item.price ? item.price + ' XPF' : '🪙 Prix'"></span>
           </button>
-          
           <button @click="deleteItem(index)" 
-                  class="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-950/30 active:bg-red-100 rounded-xl active:scale-95 transition-all duration-300">
-            🗑️
-          </button>
+                  class="p-2 rounded-md active:scale-95 transition-all"
+                  style="color: var(--danger-color)">🗑️</button>
         </div>
-
       </li>
     </template>
   </ul>
 
-  <!-- Toast Annulation -->
-  <div x-show="toast.show" 
-       x-transition:enter="transition ease-out duration-300 transform"
-       x-transition:enter-start="opacity-0 translate-y-8 scale-90"
-       x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-       x-transition:leave="transition ease-in duration-200 transform"
-       x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-       x-transition:leave-end="opacity-0 translate-y-8 scale-90"
-       class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-800 border border-slate-800 dark:border-slate-700 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-4 z-50 text-sm">
+  <!-- Toast -->
+  <div x-show="toast.show" class="fixed bottom-24 left-1/2 -translate-x-1/2 px-5 py-3 rounded-md shadow-2xl flex items-center gap-4 z-50 text-sm border" style="background-color: var(--bg-card); border-color: var(--border-color)">
     <span x-text="toast.message"></span>
-    <button @click="undoLastAction()" class="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded-xl font-semibold text-xs transition-colors">
-      ↩️ Annuler
-    </button>
+    <button @click="undoLastAction()" class="px-3 py-1 rounded font-semibold text-xs text-black" style="background-color: var(--accent-color)">↩️ Annuler</button>
   </div>
 
-  <!-- MODALE UNIQUE -->
-  <div x-show="modal.show" 
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
-       @click.self="closeModal()">
-    
-    <div x-show="modal.show"
-         x-transition:enter="transition ease-out duration-300 transform"
-         x-transition:enter-start="opacity-0 translate-y-6 scale-90"
-         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-         x-transition:leave="transition ease-in duration-200 transform"
-         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-         x-transition:leave-end="opacity-0 translate-y-6 scale-90"
-         class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl overflow-hidden transition-colors duration-300">
-      
-      <div class="grid grid-cols-1 grid-rows-1 relative min-h-[160px]">
-        
-        <!-- Étape 1 : Nom -->
-        <div x-show="modal.step === 'name'" 
-             x-transition:enter="transition ease-out duration-300 transform"
-             x-transition:enter-start="opacity-0 -translate-x-8 scale-95"
-             x-transition:enter-end="opacity-100 translate-x-0 scale-100"
-             x-transition:leave="transition ease-in duration-250 transform"
-             x-transition:leave-start="opacity-100 translate-x-0 scale-100"
-             x-transition:leave-end="opacity-0 -translate-x-12 scale-95"
-             class="col-start-1 row-start-1 space-y-4">
-          <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100">Ajouter un produit</h3>
-          <input type="text" x-model="forms.addName" x-ref="addInput" @keydown.enter="goToPriceStep()"
-                 placeholder="Nom du produit..." 
-                 class="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-2xl p-3 text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
-          <div class="flex justify-end gap-2">
-            <button @click="closeModal()" class="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium">Annuler</button>
-            <button @click="goToPriceStep()" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-semibold shadow-md active:scale-95 transition-transform">Suivant ➔</button>
-          </div>
-        </div>
-
-        <!-- Étape 2 : Prix -->
-        <div x-show="modal.step === 'price'" 
-             x-transition:enter="transition duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] transform"
-             x-transition:enter-start="opacity-0 translate-x-12 scale-95"
-             x-transition:enter-end="opacity-100 translate-x-0 scale-100"
-             x-transition:leave="transition ease-in duration-200 transform"
-             x-transition:leave-start="opacity-100 translate-x-0 scale-100"
-             x-transition:leave-end="opacity-0 translate-x-12 scale-95"
-             class="col-start-1 row-start-1 space-y-4">
-          <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100" x-text="modal.isCreatingNew ? 'Saisir le prix' : 'Modifier le prix'"></h3>
-          <input type="number" x-model="forms.priceValue" x-ref="priceInput" @keydown.enter="finishModalProcess()"
-                 placeholder="0 XPF" 
-                 class="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-2xl p-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <div class="flex justify-end gap-2">
-            <button @click="finishModalProcess(true)" class="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium" x-show="modal.isCreatingNew">Passer</button>
-            <button @click="closeModal()" class="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium" x-show="!modal.isCreatingNew">Annuler</button>
-            <button @click="finishModalProcess()" class="bg-blue-500 text-white px-5 py-2 rounded-xl font-semibold shadow-md active:scale-95 transition-transform">Valider</button>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Barre du bas -->
-  <div class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center max-w-md mx-auto z-40 transition-colors duration-500">
+  <!-- Footer Actions (Escarcelle) -->
+  <div class="fixed bottom-0 left-0 right-0 p-4 footer-escarcelle flex justify-between items-center max-w-md mx-auto z-40">
     <div>
-      <div class="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Total</div>
-      <div class="text-xl font-black text-slate-800 dark:text-slate-100 transition-colors duration-500" x-text="total + ' XPF'"></div>
+      <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Escarcelle Total</div>
+      <div class="text-xl font-black tracking-wider" style="color: var(--text-main)" x-text="total + ' XPF'"></div>
     </div>
-
     <div class="flex gap-2">
-      <button @click="clearChecked()" class="bg-red-500 text-white px-4 py-2.5 rounded-xl font-semibold shadow-sm active:scale-95 transition-all">
-        Clean
-      </button>
-      <button @click="openAddModal()" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm active:scale-95 transition-all flex items-center gap-1">
-        <span>+</span> Ajouter
-      </button>
+      <button @click="clearChecked()" class="text-white px-4 py-2.5 rounded font-semibold shadow-md active:scale-95 transition-all text-sm border" style="background-color: var(--danger-color); border-color: rgba(230, 57, 70, 0.5)">Purger</button>
+      <button @click="openAddModal()" class="text-black px-5 py-2.5 rounded font-semibold shadow-md active:scale-95 transition-all text-sm flex items-center gap-1" style="background-color: var(--accent-color)"><span>+</span> Ajouter</button>
     </div>
   </div>
+
+  <!-- Modal -->
+  <div x-show="modal.show" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4" @click.self="modal.show = false">
+    <div class="p-6 w-full max-w-sm rounded-lg border shadow-2xl space-y-4" style="background-color: #0d1017; border-color: var(--border-color)">
+      <h3 class="text-lg font-bold tracking-wide" style="color: var(--text-main)">Ajouter un artefact</h3>
+      <input type="text" x-model="forms.addName" @keydown.enter="confirmAdd()" placeholder="Nom du produit..." class="w-full bg-black/50 border p-3 rounded text-white focus:outline-none" style="border-color: var(--border-color)">
+      <input type="number" x-model="forms.priceValue" @keydown.enter="confirmAdd()" placeholder="Prix en XPF..." class="w-full bg-black/50 border p-3 rounded text-white focus:outline-none" style="border-color: var(--border-color)">
+      <div class="flex justify-end gap-2 pt-2">
+        <button @click="modal.show = false" class="px-4 py-2 text-slate-400 text-sm">Annuler</button>
+        <button @click="confirmAdd()" class="px-5 py-2 rounded text-black font-semibold text-sm" style="background-color: var(--accent-color)">Inscrire</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    function triggerDustAnimation(elements, onComplete) {
-      const dustCanvas = document.getElementById('dust-canvas');
-      dustCanvas.width = window.innerWidth;
-      dustCanvas.height = window.innerHeight;
-      const ctx = dustCanvas.getContext('2d');
-
-      const elementsArray = Array.isArray(elements) ? elements : [elements];
-      let captures = [];
-
-      elementsArray.forEach(el => {
-        const rect = el.getBoundingClientRect();
-
-        // Capture sans délai
-        const promise = html2canvas(el, { 
-          backgroundColor: null, 
-          scale: 1,
-          logging: false,
-          // Désactiver le rendu CSS pendant la capture snapshot
-          onclone: (clonedDoc) => {
-            const clonedEl = clonedDoc.getElementById(el.id);
-            if (clonedEl) {
-              clonedEl.style.transition = 'none';
-              clonedEl.querySelectorAll('*').forEach(c => c.style.transition = 'none');
-            }
-          }
-        }).then(canvas => {
-          // L'élément réel est immédiatement caché dès que la capture mémoire est faite
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
-
-          const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-          let particles = [];
-          for (let y = 0; y < canvas.height; y += 3) {
-            for (let x = 0; x < canvas.width; x += 3) {
-              const index = (y * canvas.width + x) * 4;
-              if (data[index + 3] > 20) {
-                particles.push({
-                  x: rect.left + x,
-                  y: rect.top + y,
-                  vx: Math.random() * 5 + 2,
-                  vy: (Math.random() - 0.5) * 3,
-                  life: 1,
-                  decay: Math.random() * 0.025 + 0.018,
-                  color: `rgba(${data[index]},${data[index+1]},${data[index+2]},${data[index+3]/255})`
-                });
-              }
-            }
-          }
-          return particles;
-        });
-        captures.push(promise);
-      });
-
-      Promise.all(captures).then(results => {
-        let allParticles = results.flat();
-
-        function animate() {
-          ctx.clearRect(0, 0, dustCanvas.width, dustCanvas.height);
-          let activeCount = 0;
-
-          allParticles.forEach(p => {
-            if (p.life > 0) {
-              activeCount++;
-              p.x += p.vx;
-              p.y += p.vy;
-              p.vx += 0.15; // Accélération vers la droite
-              p.life -= p.decay;
-              ctx.fillStyle = p.color;
-              ctx.globalAlpha = Math.max(0, p.life);
-              ctx.fillRect(p.x, p.y, 2.5, 2.5);
-            }
-          });
-
-          if (activeCount > 0) {
-            requestAnimationFrame(animate);
-          } else {
-            ctx.clearRect(0, 0, dustCanvas.width, dustCanvas.height);
-            if (onComplete) onComplete();
-          }
-        }
-        animate();
-      });
-    }
-
     function shoppingApp() {
       const rawData = JSON.parse(localStorage.getItem('shoppingList')) || [
-        { id: 1, name: 'Pommes', price: 250, checked: false },
-        { id: 2, name: 'Lait', price: 120, checked: true }
+        { id: 1, name: 'Pommes d\'or', price: 250, checked: false },
+        { id: 2, name: 'Elixir de soin', price: 500, checked: true }
       ];
-      
-      const initialItems = rawData.map(item => ({ 
-        ...item, 
-        priceAnimating: false 
-      }));
-
-      const savedTheme = localStorage.getItem('theme') === 'dark';
 
       return {
-        darkMode: savedTheme,
-        items: initialItems,
-        listVisible: true,
+        items: rawData,
         lastHistory: null,
         toast: { show: false, message: '', timeout: null },
-        modal: { show: false, step: 'name', isCreatingNew: false },
-        forms: { addName: '', priceValue: '', selectedIndex: null },
+        modal: { show: false },
+        forms: { addName: '', priceValue: '' },
 
         init() {
-          this.$watch('items', value => {
-            const cleanData = value.map(({ priceAnimating, ...rest }) => rest);
-            localStorage.setItem('shoppingList', JSON.stringify(cleanData));
-          });
+          window.ThemeEngine.init('fx-canvas');
+          window.ThemeEngine.setTheme('expedition33');
 
-          this.$watch('darkMode', val => {
-            localStorage.setItem('theme', val ? 'dark' : 'light');
+          this.$watch('items', val => {
+            localStorage.setItem('shoppingList', JSON.stringify(val));
           });
 
           this.$nextTick(() => {
             new Sortable(document.getElementById('shopping-list'), {
               handle: '.drag-handle',
               animation: 200,
-              ghostClass: 'opacity-30',
               onEnd: (evt) => {
-                const movedItem = this.items.splice(evt.oldIndex, 1)[0];
-                this.items.splice(evt.newIndex, 0, movedItem);
+                const moved = this.items.splice(evt.oldIndex, 1)[0];
+                this.items.splice(evt.newIndex, 0, moved);
               }
             });
           });
         },
-        toggleTheme() {
-          this.darkMode = !this.darkMode;
-        },
+
         get total() {
           return this.items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
         },
+
+        dispatchThemeEvent(eventName, payload) {
+          window.dispatchEvent(new CustomEvent(`app:${eventName}`, { detail: payload }));
+        },
+
+        toggleItem(index) {
+          this.items[index].checked = !this.items[index].checked;
+          this.dispatchThemeEvent('item-toggled', { checked: this.items[index].checked });
+        },
+
         openAddModal() {
           this.forms.addName = '';
           this.forms.priceValue = '';
-          this.forms.selectedIndex = null;
-          this.modal.isCreatingNew = true;
-          this.modal.step = 'name';
           this.modal.show = true;
-          this.$nextTick(() => this.$refs.addInput.focus());
-        },
-        goToPriceStep() {
-          if (this.forms.addName.trim()) {
-            this.modal.step = '';
-            setTimeout(() => {
-              this.modal.step = 'price';
-              this.$nextTick(() => this.$refs.priceInput.focus());
-            }, 180);
-          }
         },
 
-        finishModalProcess(skipPrice = false) {
-          const price = skipPrice ? 0 : (Number(this.forms.priceValue) || 0);
+        confirmAdd() {
+          if (!this.forms.addName.trim()) return;
+          const oldTotal = this.total;
+          const price = Number(this.forms.priceValue) || 0;
+          
+          this.items.push({
+            id: Date.now(),
+            name: this.forms.addName.trim(),
+            price: price,
+            checked: false
+          });
 
-          if (this.modal.isCreatingNew) {
-            const name = this.forms.addName.trim();
-            if (name) {
-              this.modal.show = false;
-              setTimeout(() => {
-                this.items.push({
-                  id: Date.now(),
-                  name: name,
-                  price: price,
-                  checked: false,
-                  priceAnimating: false
-                });
-              }, 200);
-            }
-          } else {
-            if (this.forms.selectedIndex !== null && this.items[this.forms.selectedIndex]) {
-              const item = this.items[this.forms.selectedIndex];
-              
-              item.priceAnimating = true;
-              this.modal.show = false;
-
-              setTimeout(() => {
-                item.price = price;
-                item.priceAnimating = false;
-              }, 300);
-            } else {
-              this.modal.show = false;
-            }
-          }
-        },
-
-        openSinglePriceModal(index) {
-          this.forms.selectedIndex = index;
-          this.forms.priceValue = this.items[index].price || '';
-          this.modal.isCreatingNew = false;
-          this.modal.step = 'price';
-          this.modal.show = true;
-          this.$nextTick(() => this.$refs.priceInput.focus());
-        },
-        closeModal() {
           this.modal.show = false;
-        },
-        toggleItem(index) {
-          this.items[index].checked = !this.items[index].checked;
+          const delta = this.total - oldTotal;
+          this.dispatchThemeEvent('total-changed', { delta });
         },
 
         deleteItem(index) {
           const itemToDelete = this.items[index];
-          this.lastHistory = {
-            type: 'single',
-            item: { ...itemToDelete },
-            index
-          };
-          const name = itemToDelete.name;
-
           const el = document.getElementById('item-' + itemToDelete.id);
-          if (el) {
-            triggerDustAnimation(el, () => {
-              const currentIndex = this.items.findIndex(i => i.id === itemToDelete.id);
-              if (currentIndex !== -1) {
-                this.items.splice(currentIndex, 1);
-              }
-            });
-          } else {
-            this.items.splice(index, 1);
-          }
+          this.lastHistory = { type: 'single', item: { ...itemToDelete }, index };
 
-          this.showToast(`"${name}" supprimé`);
+          this.dispatchThemeEvent('item-deleting', {
+            element: el,
+            done: () => {
+              const idx = this.items.findIndex(i => i.id === itemToDelete.id);
+              if (idx !== -1) this.items.splice(idx, 1);
+            }
+          });
+
+          this.showToast(`Artefact "${itemToDelete.name}" détruit`);
         },
 
         clearChecked() {
-          const checkedItems = this.items.filter(i => i.checked);
-          if (checkedItems.length === 0) return;
+          const checked = this.items.filter(i => i.checked);
+          if (checked.length === 0) return;
 
-          this.lastHistory = {
-            type: 'clean',
-            items: JSON.parse(JSON.stringify(this.items))
-          };
+          this.lastHistory = { type: 'clean', items: JSON.parse(JSON.stringify(this.items)) };
+          const elements = checked.map(item => ({ id: item.id, el: document.getElementById('item-' + item.id) }));
 
-          const elements = checkedItems
-            .map(item => document.getElementById('item-' + item.id))
-            .filter(el => el !== null);
-
-          if (elements.length > 0) {
-            triggerDustAnimation(elements, () => {
+          this.dispatchThemeEvent('items-clearing', {
+            items: elements,
+            done: () => {
               this.items = this.items.filter(i => !i.checked);
-            });
-          } else {
-            this.items = this.items.filter(i => !i.checked);
-          }
+            }
+          });
 
-          this.showToast(`${checkedItems.length} article(s) nettoyé(s)`);
+          this.showToast(`${checked.length} artefact(s) purgé(s)`);
         },
 
         undoLastAction() {
           if (!this.lastHistory) return;
-
-          this.listVisible = false;
-
-          setTimeout(() => {
-            if (this.lastHistory.type === 'single') {
-              this.items.splice(this.lastHistory.index, 0, this.lastHistory.item);
-            } else if (this.lastHistory.type === 'clean') {
-              this.items = JSON.parse(JSON.stringify(this.lastHistory.items));
-            }
-
-            this.listVisible = true;
-            this.lastHistory = null;
-            this.toast.show = false;
-          }, 300);
+          if (this.lastHistory.type === 'single') {
+            this.items.splice(this.lastHistory.index, 0, this.lastHistory.item);
+          } else if (this.lastHistory.type === 'clean') {
+            this.items = JSON.parse(JSON.stringify(this.lastHistory.items));
+          }
+          this.dispatchThemeEvent('action-undone');
+          this.lastHistory = null;
+          this.toast.show = false;
         },
 
-        showToast(message) {
-          this.toast.message = message;
+        showToast(msg) {
+          this.toast.message = msg;
           this.toast.show = true;
           if (this.toast.timeout) clearTimeout(this.toast.timeout);
-          this.toast.timeout = setTimeout(() => { this.toast.show = false; }, 4000);
+          this.toast.timeout = setTimeout(() => this.toast.show = false, 3500);
         }
       }
     }
