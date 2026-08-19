@@ -75,6 +75,31 @@ class Expedition33Theme {
     }
   }
 
+  onPriceUpdated({ element, delta }) {
+    window.ThemeEngine.playSynthSound(1567.98, 'sine', 0.06, 0.02);
+
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      for (let i = 0; i < 15; i++) {
+        this.particles.push({
+          x: rect.left + Math.random() * rect.width,
+          y: rect.top + Math.random() * rect.height,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: -Math.random() * 2 - 0.5,
+          life: 1.0,
+          decay: 0.03,
+          size: Math.random() * 1.5 + 0.8, // Particules très fines
+          color: '#66fcf1'
+        });
+      }
+      this._startLoop();
+    }
+
+    if (delta !== 0) {
+      this.onTotalChanged({ delta });
+    }
+  }
+
   onActionUndone() {
     window.ThemeEngine.playSynthSound(523.25, 'sine', 0.15, 0.05);
   }
